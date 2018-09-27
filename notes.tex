@@ -1,0 +1,361 @@
+% last updated in April 2002 by Antje Endemann
+% Based on CVPR 07 and LNCS, with modifications by DAF, AZ and elle, 2008 and AA, 2010, and CC, 2011; TT, 2014; AAS, 2016
+
+\documentclass[runningheads]{llncs}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb} % define this before the line numbering.
+\usepackage{ruler}
+\usepackage{color}
+\usepackage[width=122mm,left=12mm,paperwidth=146mm,height=193mm,top=12mm,paperheight=217mm]{geometry}
+\usepackage{multirow, multicol}
+    
+% \newtheorem{theorem}{Theorem}
+
+\begin{document}
+% \renewcommand\thelinenumber{\color[rgb]{0.2,0.5,0.8}\normalfont\sffamily\scriptsize\arabic{linenumber}\color[rgb]{0,0,0}}
+% \renewcommand\makeLineNumber {\hss\thelinenumber\ \hspace{6mm} \rlap{\hskip\textwidth\ \hspace{6.5mm}\thelinenumber}}
+% \linenumbers
+\pagestyle{headings}
+\mainmatter
+\def\ECCV18SubNumber{1452}  % Insert your submission number here
+
+\title{Image Understand Notes} % Replace with your title
+
+\titlerunning{ECCV-18 submission ID \ECCV18SubNumber}
+
+\authorrunning{ECCV-18 submission ID \ECCV18SubNumber}
+
+\author{Depu Meng}
+\institute{Sept. $2018$}
+
+
+\maketitle
+\section{Corner Detection}
+\subsection{How to define a corner?}
+A corner is a region where two edges meet.
+Corners have the property that a movement of any direction 
+will result in a significant change.
+\subsection{Metric to measure a corner}
+We use (weighted) summed square difference -- WSSD to
+measure how much a region is likely to be a corner.
+WSSD with shift $\boldsymbol{u}$ is defined as follows:
+\begin{align}
+    \label{eq:1}
+    E_{WSSD}(\boldsymbol{u}) = \sum_i w(\boldsymbol{x}_i) [I(\boldsymbol{x}_i + \boldsymbol{u}) - I(\boldsymbol{x}_i)]^2
+\end{align}
+\par
+If we denote $\boldsymbol{u} = (u, v)$,
+$w(\boldsymbol{x}_i)$ is a window function
+with window area $W$,
+then we can rewrite equation \ref{eq:1} to
+\begin{align}
+    \label{eq:2}
+    E_{WSSD}(u, v) = \sum_{(x, y) \in W} [I(x + u, y + v) - I(\boldsymbol{x}_i)]^2
+\end{align}
+\par
+We call equation \ref{eq:2} \emph{auto-correlation function}.
+\par
+If we assume the shift $\boldsymbol{u}$ is small,
+then we can have the following approximation
+\begin{align}
+    \label{eq:3}
+    I(x + u, y + v) \approx I(x, y) + \frac{\partial I}{\partial x} u + \frac{\partial I}{\partial y} v  
+\end{align}
+\par
+Denote $I_x = \frac{\partial I}{\partial x}$,
+$I_y = \frac{\partial I}{\partial y}$
+and rewrite the equation \ref{eq:3} in matrix form
+\begin{align}
+    \label{eq:4}
+    I(x + u, y + v) \approx I(x, y) + 
+    \begin{bmatrix}
+        I_x &I_y
+    \end{bmatrix}
+    \begin{bmatrix}
+        u \\
+        v
+    \end{bmatrix}
+\end{align}
+\par
+So the SSD function can be rewrite to 
+\begin{align}
+    \label{eq:5}
+    E(u, v) &\approx \sum_{(x, y) \in W} \Bigg[ 
+        \begin{bmatrix}
+            I_x &I_y
+        \end{bmatrix}
+        \begin{bmatrix}
+            u \\
+            v
+        \end{bmatrix}\Bigg]^2 \\
+        &= \sum_{(x, y) \in W}
+        \begin{bmatrix}
+            u &v
+        \end{bmatrix}
+        \begin{bmatrix}
+            I_x^2 &I_xI_y \\
+            I_yI_x &I_y^2
+        \end{bmatrix}
+        \begin{bmatrix}
+            u \\
+            v
+        \end{bmatrix} \\
+        &= 
+        \begin{bmatrix}
+            u &v
+        \end{bmatrix}
+        A
+        \begin{bmatrix}
+            u \\
+            v
+        \end{bmatrix} \\
+\end{align}
+\par
+Where $$A = \sum_{(x, y) \in W} 
+\begin{bmatrix}
+    I_x^2 &I_xI_y \\
+    I_yI_x &I_y^2
+\end{bmatrix}$$
+We apply eigenvalue decomposition to $A$,
+then we can get eigenvalues $\lambda_1, \lambda_2$
+and eigenvectors $\boldsymbol{x}_1, \boldsymbol{x}_2$
+respectively. Assume that $\lambda_1 > \lambda_2$,
+then we have the following conclusion:
+\begin{theorem}
+    When $\operatorname{cos}\langle \boldsymbol{u} , \boldsymbol{x}_1\rangle = 1$,
+    the $E(\boldsymbol{u})$ reaches maxima $\lambda_1$;
+    \par\noindent
+    When  $\operatorname{cos}\langle \boldsymbol{u} , \boldsymbol{x}_2\rangle = 1$,
+    the $E(\boldsymbol{u})$  reaches minima $\lambda_2$;
+\end{theorem}
+\begin{proof}
+\begin{align*}
+    E(u, v) = 
+    \begin{bmatrix}
+        u &v
+    \end{bmatrix}
+    A
+    \begin{bmatrix}
+        u \\
+        v
+    \end{bmatrix} \\
+\end{align*}
+\par
+where $A = Q\Lambda Q^{-1}$,
+$Q = [\boldsymbol{x}_1, \boldsymbol{x}_2]$, $\Lambda = diag(\lambda_1, \lambda_2)$,
+denote $\boldsymbol{u} =
+\begin{bmatrix}
+    u \\
+    v
+\end{bmatrix}$,
+then we have
+\begin{align*}
+    E(u, v) &= 
+    \boldsymbol{u}^T
+    Q\Lambda Q^{-1}
+    \boldsymbol{u} \\
+    &= 
+    \boldsymbol{u}^T
+    \begin{bmatrix}
+        \boldsymbol{x}_1, \boldsymbol{x}_2
+    \end{bmatrix}
+    diag(\lambda_1, \lambda_2)
+    \begin{bmatrix}
+        \boldsymbol{x}_1, \boldsymbol{x}_2
+    \end{bmatrix}^{-1}
+    \boldsymbol{u} \\
+\end{align*}
+\par
+Because $A$ is a symmetrical matrix, we have $Q^{-1} = Q^T$,
+then
+\begin{align*}
+    E(u, v) &=
+    \boldsymbol{u}^T
+    \begin{bmatrix}
+        \boldsymbol{x}_1, \boldsymbol{x}_2
+    \end{bmatrix}
+    diag(\lambda_1, \lambda_2)
+    \begin{bmatrix}
+        \boldsymbol{x}_1^T \\
+        \boldsymbol{x}_2^T
+    \end{bmatrix}
+    \boldsymbol{u} \\
+    &=
+    \begin{bmatrix}
+        \boldsymbol{u}^T \cdot \boldsymbol{x}_1, \boldsymbol{u}^T \cdot \boldsymbol{x}_2
+    \end{bmatrix}
+    diag(\lambda_1, \lambda_2)
+    \begin{bmatrix}
+        \boldsymbol{x}_1^T \cdot \boldsymbol{u}\\
+        \boldsymbol{x}_2^T \cdot \boldsymbol{u}
+    \end{bmatrix}\\
+    &=
+    \lambda_1 (\boldsymbol{u}^T \cdot \boldsymbol{x}_1)^2 + \lambda_2 (\boldsymbol{u}^T \cdot \boldsymbol{x}_2)^2
+\end{align*}
+\par
+Because $\boldsymbol{x}_1 \perp \boldsymbol{x}_2$,
+the $E = const$ construct an ellipse with semi-major axis $\boldsymbol{x}_1$
+and semi-minor axis $\boldsymbol{x}_2$, $a = \lambda_1$, $b = \lambda_2$.
+Then we can easily get that $\boldsymbol{x_1}$ is the maximum gradient
+direction, $\boldsymbol{x_2}$ is the minimum.\qed
+\end{proof}
+\par
+Then we can conclude that
+\begin{align*}
+    W &\textrm{ is a \emph{edge} region if } \lambda_1 \gg \lambda_2, \\
+    W &\textrm{ is a \emph{flat} region if both } \lambda_1 \textrm{ and } \lambda_2 \textrm{ are small }, \\
+    W &\textrm{ is a \emph{corner} region if both } \lambda_1 \textrm{ and } \lambda_2 \textrm{ are large }. \\
+\end{align*}
+\par
+With the properties above, we know that whether a region is a corner
+is determined by the smaller eigenvalue $\lambda_2$.
+So we can use a simple threshold like $\lambda_2 \lessgtr t$ to detect corners.
+In order to get the exact location of a corner,
+we choose the local maximum as the corner location.
+
+\subsection{Harris Detector}
+In Harris detector, the measure of corner response is
+\begin{align}
+    R = \operatorname{det} (A) - k (\operatorname{tr} (A))^2
+\end{align}
+\par
+where $k$ is a empirical constant and
+$\operatorname{det} (A)$ and $\operatorname{tr} (A)$
+have the following properties
+\begin{align*}
+    \operatorname{det} (A) &= \lambda_1 \lambda_2 \\
+    \operatorname{tr} (A) &= \lambda_1 + \lambda_2
+\end{align*}
+\par
+So when $\lambda_2$ is large, $R$ will be large too,
+and from the definition we can see that the computation
+cost of $R$ is smaller than directly calculate $\lambda_2$. 
+
+\subsection{Adaptive Non-Maximal Suppression}
+The method that take local maxima
+as corner point
+can lead to an uneven distribution of corner points.
+For example, some regions might be rich of textures
+so these regions might have lots of local maxima.
+In order to balance the corner point distribution,
+we adopt \emph{Adaptive Non-Maximal Suppression} (ANMS),
+that only consider points that are (a) local maxima
+(b) larger than its neighborhood by at least $10\%$ in
+an adaptive radius as corner points.
+
+\section{Feature Detection}
+\subsection{Blob Detection Filters}
+\paragraph{Laplacian of Gaussian}
+The Laplacian of Gaussian (LoG) filter is defined as 
+\begin{align}
+    \label{eq:10}
+    \bigtriangledown^2 G = \frac{\partial^2 G}{\partial x^2} + \frac{\partial^2 G}{\partial y^2}
+\end{align}
+\par
+where $G$ is a Gaussian kernel
+\begin{align}
+    \label{eq:11}
+    G(x, y, \sigma) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}}
+\end{align}
+\par
+so combine equation \ref{eq:10} and equation \ref{eq:11},
+we can get
+\begin{align}
+    \bigtriangledown^2 G(x, y, \sigma) = \Big( \frac{x^2 + y^2}{\sigma^4} - \frac{2}{\sigma^2} \Big) G(x, y, \sigma)
+\end{align}
+
+\noindent\textbf{Remark.}
+The original idea of LoG is to calculate the
+second derivative of the image blurred by a
+Gaussian kernel, i.e.,
+\begin{align}
+    LoG(f) &= \bigtriangledown^2 (g * f) = \mathcal{L} * (g * f) = (\mathcal{L} * g) * f = \bigtriangledown^2 g * f
+\end{align}
+\par
+where $\mathcal{L}$ is the Laplacian kernel.
+\paragraph{Difference of Gaussian}
+The Difference of Gaussian (DoG) filter is defined as
+\begin{align}
+    DoG(\frac{\sigma_1}{\sigma_2},\sigma_2) = G(x, y, \sigma_1) - G(x, y, \sigma_2) =  \frac{1}{2\pi} \Big( \frac{1}{\sigma_1^2} e^{-\frac{x^2 + y^2}{2\sigma_1^2}} - \frac{1}{\sigma_2^2} e^{-\frac{x^2 + y^2}{2\sigma_2^2}} \Big)
+\end{align}
+DoG is a good approximation of LoG, because
+\begin{align}
+    DoG(k, \sigma) = G(x, y, k\sigma) - G(x, y, \sigma) \approx (k - 1) \sigma^2 \bigtriangledown^2 G(x, y, \sigma)
+\end{align}
+
+\subsection{Scale Invariance}
+\paragraph{Definition}
+A feature detector is scale invariant means that
+the detector can detect features at a variety of scale
+and match in all possible levels of resolution in a pyramid.
+That means that the detector should find the local
+maxima of a feature in $x, y, \sigma$ domain, i.e.,
+\begin{align}
+    (x_0, y_0) = \mathop{\arg\max}_{(x_0, y_0)} \{\mathop{\max}_{\sigma} f(x, y, \sigma) \}
+\end{align}
+
+\par
+A naive approach is to detect the features using a series of
+DoG detectors with different $\sigma$.
+However, in this way, the computation is not efficient.
+In order to detect features with different scales efficiently,
+\emph{Scale Invariant Feature Transform} (SIFT) is developed.
+
+\paragraph{Frequency sampling in scale}
+In order to find the local maxima in scale domain, we need sampling in scale.
+Suggest we adpot a sampling $\sigma, 2\sigma, 4\sigma,...$, we will have features
+of $\sigma, 2\sigma, 4\sigma,...$ scale.
+
+\paragraph{An important equivalence}
+A convolution with Gaussian kernel $G(2\sigma)$ performs on an image $f$
+is equivalent with a convolution with Gaussian kernel $G(\sigma)$ performs on an image $h$,
+where $h$ is the image that $f$ is downsampled by the scale of $2$.
+
+\paragraph{SIFT Algorithm}
+Scale sampling in SIFT is $\sigma, 2^{\frac{1}{s}}\sigma, 2^{\frac{2}{s}}\sigma,..., 2^1\sigma, 2^{1+\frac{1}{s}}\sigma,...$.
+From the equivalence mentioned above, we can divide this sampling into
+\begin{align*}
+    &\sigma, 2^{\frac{1}{s}}\sigma, 2^{\frac{2}{s}}\sigma,...,2^{\frac{s-1}{s}}\sigma \\
+    &2\sigma, 2^{1+\frac{1}{s}}\sigma, 2^{1+\frac{2}{s}}\sigma,...,2^{1+\frac{s-1}{s}}\sigma \\
+    &...\\
+    &2^n\sigma, 2^{n+\frac{1}{s}}\sigma, 2^{n+\frac{2}{s}}\sigma,..., 2^{n+\frac{s-1}{s}}\sigma
+\end{align*}
+\par
+Instead of directly perform DoG with the above scale on the original image,
+we perform downsample with scale of $2$ on the original image to generate
+a series of new images, we call them \emph{octaves}.
+We only need to perform DoG with scale $\sigma, 2^{\frac{1}{s}}\sigma, 2^{\frac{2}{s}}\sigma,...,2^{\frac{s-1}{s}}\sigma$
+on all these octaves to achieve all the scale sampling.
+With this modification, the computation cost is reduced.
+\par
+To further reduce computation cost,
+we find that the Gaussian convolution can be reused.
+Suggest that we perform $G(\sigma)$ on the original image $f$
+and get a new image denoted as $h_{\sigma}$,
+then 
+$$DoG(2^{\frac{1}{s}}, \sigma) = G(x, y, 2^{\frac{1}{s}}\sigma) - G(x, y, \sigma)$$
+Then we can calculate $h_{\sigma_i}$ first and cache them,
+so each $h_{\sigma_i}$ can be used twice.
+\par
+After DoGs are calculated, we get the local maximas in each scale.
+In order to get the local maximas in scale domain,
+we compare the local maximas in each map with the same location in
+its neighborhood images in scale domain.
+Then we get the features from different scales, i.e., \emph{Scale Invariant Feature Detection}.
+% \clearpage
+% \section{yang's problem}
+% \begin{align*}
+%     \operatorname{Cov} (\boldsymbol{a}'CY, Y'C'ACY)
+%     &= \operatorname{E} [(\boldsymbol{a}'CY - \operatorname{E}[\boldsymbol{a}'CY])(Y'C'ACY - \operatorname{E}[Y'C'ACY])] \\
+%     &= \operatorname{E} [(\boldsymbol{a}'CY)(Y'C'ACY - tr(C'AC))] \\
+%     &= \operatorname{E} [(\boldsymbol{a}'CYY'C'ACY] - \operatorname{E}[\boldsymbol{a}'CY tr(C'AC))] \\
+%     &= \operatorname{E} [ \sum_i w_i Y_i^3 ] - 0 \\
+%     &= 0
+% \end{align*}
+
+\section{Feature Description}
+After features are detected, a natural idea is to match the same
+feature points across the images, so description of features
+as well as distance between descriptions is required.
+
+\end{document}
