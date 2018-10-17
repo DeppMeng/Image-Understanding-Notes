@@ -357,5 +357,19 @@ Then we get the features from different scales, i.e., \emph{Scale Invariant Feat
 After features are detected, a natural idea is to match the same
 feature points across the images, so description of features
 as well as distance between descriptions is required.
+Like feature detection, feature description also requires
+invariances. Invariance of feature description can be achieved
+by invariant feature detector + invariant feature descriptor.
+\subsection{Multi-scale Oriented PatcheS descriptor}
+The algorithm is as follows:
+Take a $40 \times 40$ region around the detected feature
+\begin{itemize}
+    \item Rescale to $8 \times 8$ region
+    \item Rotate to horizontal
+    \item Sample $8 \times 8$ square window centered at feature
+    \item Intensity normalize the window $I = \frac{I - \bar{I}}{\sigma}$
+\end{itemize}
+
+\subsection{Scale Invariant Feature Transform}
 
 \end{document}
